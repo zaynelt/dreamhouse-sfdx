@@ -1,0 +1,5 @@
+<aura:component>
+    <div class="slds-card">
+        Hello!
+    </div>
+</aura:component>	
