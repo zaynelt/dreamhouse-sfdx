@@ -1,82 +1,69 @@
 version: 2
+
+general:
+# Uncomment the following to specify only a specific branch
+#   branches:
+#     only:
+#       - dev # specific branch
+#       - /dev-.*/ # or regexes
+
 jobs:
   build:
-    docker:
-      - image: circleci/node:latest
-    
+    machine: true
+    working_directory: ~/ci_app
+    environment:
+      # from https://developer.salesforce.com/docs/atlas.en-us.sfdx_setup.meta/sfdx_setup/sfdx_setup_install_cli_standalone.htm
+      # and https://developer.salesforce.com/media/salesforce-cli/manifest.json
+      - DX_CLI_URL: https://developer.salesforce.com/media/salesforce-cli/sfdx-linux-amd64.tar.xz
     steps:
       - checkout
-      - restore_cache:
-          keys:
-              - sfdx-version-43-local
       - run:
-          name: Install Salesforce DX
+          name: Download CLI
           command: |
-              openssl aes-256-cbc -k $KEY -in ./.circleci/server.key.enc -out ./.circleci/server.key -d
-              export SFDX_USE_GENERIC_UNIX_KEYCHAIN=true
-              export SFDX_DOMAIN_RETRY=300
-              npm install sfdx-cli
-              node_modules/sfdx-cli/bin/run --version
-              node_modules/sfdx-cli/bin/run plugins --core
-      - save_cache:
-          key: sfdx-version-43-local
-          paths: 
-              - node_modules
-      - run: 
-          name: Authenticate dev hub
-          command: |
-              node_modules/sfdx-cli/bin/run force:auth:jwt:grant --clientid $CONSUMERKEY --jwtkeyfile .circleci/server.key --username $USERNAME --setdefaultdevhubusername -a HubOrg
-      - run: 
-          name: Create Scratch Org
-          command: |
-              node_modules/sfdx-cli/bin/run force:org:create -v HubOrg -s -f config/project-scratch-def.json -a ciorg
-    #   - run: 
-    #       name: Install Lightning tester
-    #       command: |
-    #           node_modules/sfdx-cli/bin/run force:lightning:test:install -u ciorg
-      - run: 
-          name: Push Source
-          command: |
-             node_modules/sfdx-cli/bin/run force:source:push -u ciorg
+            mkdir sfdx
+            wget -qO- $DX_CLI_URL | tar xJ -C sfdx --strip-components 1
       - run:
-          name: Run Apex Tests
+          name: Install CLI
           command: |
-              node_modules/sfdx-cli/bin/run force:apex:test:run -u ciorg -c -r human
-    #   - run:
-    #       name: Run Lightning Jasmine tests
-    #       command: |
-    #           node_modules/sfdx-cli/bin/run force:lightning:test:run -u ciorg -a jasmineTests.app
-      - run: 
-          name: Clean Up
-          when: always
+            ./sfdx/install
+            sfdx
+            mkdir tmp
+      - run:
+          name: Create hub key
           command: |
-              node_modules/sfdx-cli/bin/run force:org:delete -u ciorg -p
-      - run: 
-          name: Create package version
+            echo 'make hub key'
+            #- mkdir keys
+            #- echo $HUB_SERVER_KEY_HEX | xxd -r -ps >> keys/hub.key
+            openssl enc -nosalt -aes-256-cbc -d -in .circleci/server.key.enc -out .circleci/server.key -base64 -K $DECRYPTION_KEY -iv $DECRYPTION_IV
+            #- openssl rsa -in keys/hub.key -check -noout
+          ### Uncomment the following if performing deployments
+          #- echo 'make deploy key'
+          #- echo $DEPLOY_SERVER_KEY_HEX | xxd -r -ps >> keys/deploy.key
+          #- openssl rsa -in keys/deploy.key -check -noout
+          #- sfdx force:auth:jwt:grant --clientid $DEPLOY_CONSUMER_KEY --jwtkeyfile keys/deploy.key --username $DEPLOY_SFDC_USER -a deploy
+      - run:
+          name: Setup Org
           command: |
-              PACKAGEVERSIONID="$(node_modules/sfdx-cli/bin/run force:package:version:create -d force-app -w 500 -i $PACKAGEID  -v HubOrg --json | jq -r .result.SubscriberPackageVersionId)"
-      - run: 
-          name: Create Package Org
-          command: |
-              node_modules/sfdx-cli/bin/run force:org:create -v HubOrg -s -f config/project-scratch-def.json -a packageorg
-      - run: 
-          name: Install Package
-          command: |
-              node_modules/sfdx-cli/bin/run force:package:install  -u packageorg -p 10 -i $PACKAGEVERSIONID
-    #   - run: 
-    #       name: Install Lightning tester
-    #       command: |
-    #            node_modules/sfdx-cli/bin/run force:lightning:test:install -u packageorg
+            echo 'Running tests'
+            sfdx force:auth:jwt:grant --clientid $HUB_CONSUMER_KEY --jwtkeyfile circleci/server.key --username $HUB_SFDC_USER --setdefaultdevhubusername -a hub
+            sfdx force --help
+            sfdx force:org:create -s -f ~/ci_app/config/project-scratch-def.json -a circle_build_$CIRCLE_BUILD_NUM --wait 2
+            sfdx force:source:push -u circle_build_$CIRCLE_BUILD_NUM
       - run:
           name: Run Apex Tests
           command: |
-              node_modules/sfdx-cli/bin/run force:apex:test:run -u packageorg -c -r human
-    #   - run:
-    #       name: Run Lightning Jasmine tests
-    #       command: |
-    #           node_modules/sfdx-cli/bin/run force:lightning:test:run -u packageorg -a jasmineTests.app
-      - run: 
-          name: Clean Up
-          when: always
+            mkdir -p ~/junit
+            sfdx force:apex:test:run -c -d ~/junit -r junit --wait 5
+      - store_test_results:
+          path: ~/junit
+      - run:
+          name: Delete Useless Scratch Org
           command: |
-              node_modules/sfdx-cli/bin/run force:org:delete -u packageorg -p
+            sfdx force:org:delete -u circle_build_$CIRCLE_BUILD_NUM -p
+
+### Uncomment the following if performing deployments
+#deployment:
+#  override:
+#    - sfdx force:source:convert -r force-app -d testDeploy
+#    - . cleanupDeploy.sh
+#    - sfdx force:mdapi:deploy -d testDeploy/ -u deploy -w 2
