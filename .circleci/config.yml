@@ -1,8 +1,82 @@
 version: 2
 jobs:
   build:
-    docker: # See https://docs.docker.com/get-started/#docker-concepts if you are new to Docker.
-      - image: circleci/ruby:2.4.1-jessie
+    docker:
+      - image: circleci/node:latest
+    
     steps:
       - checkout
-      - run: echo "A first hello"
+      - restore_cache:
+          keys:
+              - sfdx-version-43-local
+      - run:
+          name: Install Salesforce DX
+          command: |
+              openssl aes-256-cbc -k $KEY -in .circleci/server.key.enc -out .circleci/server.key -d
+              export SFDX_USE_GENERIC_UNIX_KEYCHAIN=true
+              export SFDX_DOMAIN_RETRY=300
+              npm install sfdx-cli
+              node_modules/sfdx-cli/bin/run --version
+              node_modules/sfdx-cli/bin/run plugins --core
+      - save_cache:
+          key: sfdx-version-43-local
+          paths: 
+              - node_modules
+      - run: 
+          name: Authenticate dev hub
+          command: |
+              node_modules/sfdx-cli/bin/run force:auth:jwt:grant --clientid $CONSUMERKEY --jwtkeyfile .circleci/server.key --username $USERNAME --setdefaultdevhubusername -a HubOrg
+      - run: 
+          name: Create Scratch Org
+          command: |
+              node_modules/sfdx-cli/bin/run force:org:create -v HubOrg -s -f config/project-scratch-def.json -a ciorg
+    #   - run: 
+    #       name: Install Lightning tester
+    #       command: |
+    #           node_modules/sfdx-cli/bin/run force:lightning:test:install -u ciorg
+      - run: 
+          name: Push Source
+          command: |
+             node_modules/sfdx-cli/bin/run force:source:push -u ciorg
+      - run:
+          name: Run Apex Tests
+          command: |
+              node_modules/sfdx-cli/bin/run force:apex:test:run -u ciorg -c -r human
+    #   - run:
+    #       name: Run Lightning Jasmine tests
+    #       command: |
+    #           node_modules/sfdx-cli/bin/run force:lightning:test:run -u ciorg -a jasmineTests.app
+      - run: 
+          name: Clean Up
+          when: always
+          command: |
+              node_modules/sfdx-cli/bin/run force:org:delete -u ciorg -p
+      - run: 
+          name: Create package version
+          command: |
+              PACKAGEVERSIONID="$(node_modules/sfdx-cli/bin/run force:package:version:create -d force-app -w 500 -i $PACKAGEID  -v HubOrg --json | jq -r .result.SubscriberPackageVersionId)"
+      - run: 
+          name: Create Package Org
+          command: |
+              node_modules/sfdx-cli/bin/run force:org:create -v HubOrg -s -f config/project-scratch-def.json -a packageorg
+      - run: 
+          name: Install Package
+          command: |
+              node_modules/sfdx-cli/bin/run force:package:install  -u packageorg -p 10 -i $PACKAGEVERSIONID
+    #   - run: 
+    #       name: Install Lightning tester
+    #       command: |
+    #            node_modules/sfdx-cli/bin/run force:lightning:test:install -u packageorg
+      - run:
+          name: Run Apex Tests
+          command: |
+              node_modules/sfdx-cli/bin/run force:apex:test:run -u packageorg -c -r human
+    #   - run:
+    #       name: Run Lightning Jasmine tests
+    #       command: |
+    #           node_modules/sfdx-cli/bin/run force:lightning:test:run -u packageorg -a jasmineTests.app
+      - run: 
+          name: Clean Up
+          when: always
+          command: |
+              node_modules/sfdx-cli/bin/run force:org:delete -u packageorg -p
