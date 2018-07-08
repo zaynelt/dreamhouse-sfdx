@@ -31,7 +31,8 @@
         }
         action.setCallback(this, function(response) {
         	component.set("v.location", response.getReturnValue());
-			var ys = component.find("yelpservice");
+            var ys = component.find("yelpservice");
+            //console.log('address set: ', component.get("v.location"));
     		ys.set("v.address", component.get("v.location"));
     		ys.set("v.searchTerm", component.get("v.searchTerm"));
         });

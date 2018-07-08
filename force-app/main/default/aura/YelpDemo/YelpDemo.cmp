@@ -6,7 +6,7 @@
     <aura:attribute name="sObjectName" type="String" default="Contact" />
     <aura:attribute name="defaultSearch" type="String" />
     <aura:attribute name="designHeight" type="String" />
-    <aura:attribute name="location" type="Object" />
+    <aura:attribute name="location" type="Object" default='{"coords":{"latitude":37.7938462, "longitude":-122.3970253}}'/>
     <aura:attribute name="staticLocation" type="Object" />
     <aura:attribute name="restaurantList" type="Object[]" access="global" />
     <aura:attribute name="openItem" type="String" />
