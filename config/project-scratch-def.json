@@ -2,6 +2,7 @@
     "orgName": "Dreamhouse",
     "edition": "Developer",
     "hasSampleData": "false",
+    "features": "DebugApex",
     "orgPreferences" : {
         "enabled": ["S1DesktopEnabled"],
         "disabled": ["S1EncryptedStoragePref2"]
