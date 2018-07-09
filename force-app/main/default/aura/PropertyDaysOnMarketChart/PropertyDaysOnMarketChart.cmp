@@ -28,7 +28,7 @@
                     <div><div class="legend">60 days</div></div>
                 </div>
             </lightning:layoutitem>
-        </lightning:layout>
+        </lightning:layout>    
     </div>
     
 </aura:component>

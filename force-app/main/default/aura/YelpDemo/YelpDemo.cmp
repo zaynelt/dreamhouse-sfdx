@@ -21,9 +21,9 @@
 
     <c:YelpService defaultExpiration="30" aura:id="yelpservice" address="{!v.location}" searchTerm="{!v.searchTerm}" />
 
-
+    
     <div class="slds-box small" aura:id="main">
-        <div class="panel panel--visible " aura:id="panelList">
+        <div class="slds-card panel panel--visible " aura:id="panelList">
             <header class="panel__header">
                 <h2 class="slds-text-heading--small slds-m-bottom--small">In the Neighborhood</h2>
                 <div class="slds-form-element">

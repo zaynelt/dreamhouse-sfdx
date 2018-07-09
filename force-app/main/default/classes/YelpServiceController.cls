@@ -2,6 +2,7 @@ public class YelpServiceController {
     @AuraEnabled
     public static String getListByLatLon (String latlon, String searchTerm) {
             String url = 'https://th-yelp-locator.herokuapp.com/search?address=' + latlon + '&term=' + EncodingUtil.urlEncode(searchTerm, 'UTF-8');
+            //String url = 'https://grewis-yelp.herokuapp.com/search?address=' + latlon + '&term=' + EncodingUtil.urlEncode(searchTerm, 'UTF-8');
             String resultList = getHttp(url);
             return resultList;   
     }
@@ -19,6 +20,7 @@ public class YelpServiceController {
     public static String getListByAddress(String address, String searchTerm) {
     try {
             String url = 'https://th-yelp-locator.herokuapp.com/search?address=' + EncodingUtil.urlEncode(address, 'UTF-8') + '&term=' + EncodingUtil.urlEncode(searchTerm, 'UTF-8');
+            //String url = 'https://grewis-yelp.herokuapp.com/search?address=' + EncodingUtil.urlEncode(address, 'UTF-8') + '&term=' + EncodingUtil.urlEncode(searchTerm, 'UTF-8');
             system.debug(url);
             String resultList = getHttp(url);
             system.debug(resultList);
