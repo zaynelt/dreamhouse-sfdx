@@ -42,7 +42,7 @@
             toastEvent.fire();
         } else if (state === 'SUCCESS') {
             var data = JSON.parse(response.getReturnValue());
-            console.log(data.bizArray);
+            console.log(data);
             if (data.error) {
                 component.set("v.errorMessage", data.error);
             } else if (data.bizArray) {
